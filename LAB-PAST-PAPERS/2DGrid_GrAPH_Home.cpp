@@ -23,159 +23,82 @@ We output the path positions (row and column indices) and find the minimum numbe
 
 
 #include <iostream>
-#include <vector>
 #include <queue>
-#include <cstdlib>
-#include <ctime>
-
+#include <vector>
 using namespace std;
 
-// Structure to represent a point on the 2D grid
-struct Point {
-    int r, c;
+struct Node
+{
+    int row, col, dist;
 };
 
-// Node structure for our graph representation
-struct GraphNode {
-    Point pos;
-    vector<Point> neighbors; // Adjacency list
-};
+int main()
+{
+    int rows, cols;
+    cin >> rows >> cols;
 
-int main() {
-    srand(time(0)); // Seed for random generation of '-' and 'X'
+    vector<string> grid(rows);
 
-    int width, height;
-    cout << "Enter the width (number of columns) and height (number of rows) of the grid: ";
-    cin >> width >> height;
+    int sr, sc, er, ec;
 
-    // Initialize 2D grid
-    vector<vector<char>> grid(height, vector<char>(width));
+    // Input grid
+    for (int i = 0; i < rows; i++)
+    {
+        cin >> grid[i];
 
-    // Get Umer's position (U)
-    int uRow, uCol;
-    cout << "Enter Umer's position 'U' (row and col indices, 0-indexed): ";
-    cin >> uRow >> uCol;
-
-    // Get Home's position (H)
-    int hRow, hCol;
-    cout << "Enter Home's position 'H' (row and col indices, 0-indexed): ";
-    cin >> hRow >> hCol;
-
-    // Validate inputs
-    if (uRow < 0 || uRow >= height || uCol < 0 || uCol >= width ||
-        hRow < 0 || hRow >= height || hCol < 0 || hCol >= width) {
-        cout << "Error: Positions are out of bounds!" << endl;
-        return 1;
-    }
-
-    // Populate the grid randomly with '-' and 'X'
-    for (int r = 0; r < height; r++) {
-        for (int c = 0; c < width; c++) {
-            if (r == uRow && c == uCol) {
-                grid[r][c] = 'U';
-            } else if (r == hRow && c == hCol) {
-                grid[r][c] = 'H';
-            } else {
-                // Randomly assign '-' (empty path, 75% chance) or 'X' (house/obstacle, 25% chance)
-                grid[r][c] = (rand() % 4 == 0) ? 'X' : '-';
+        for (int j = 0; j < cols; j++)
+        {
+            if (grid[i][j] == 'U')
+            {
+                sr = i;
+                sc = j;
+            }
+            if (grid[i][j] == 'H')
+            {
+                er = i;
+                ec = j;
             }
         }
     }
 
-    // Print the generated grid scenario
-    cout << "\n--- Generated Grid Scenario ---" << endl;
-    for (int r = 0; r < height; r++) {
-        for (int c = 0; c < width; c++) {
-            cout << grid[r][c] << " ";
-        }
-        cout << endl;
-    }
-    cout << "-------------------------------" << endl;
+    queue<Node> q;
+    vector<vector<bool>> visited(rows, vector<bool>(cols, false));
 
-    // Map the grid scenario to an adjacency-list based Graph
-    // Valid movements: Up, Down, Left, Right
+    q.push({sr, sc, 0});
+    visited[sr][sc] = true;
+
+    // Up, Down, Left, Right
     int dr[] = {-1, 1, 0, 0};
     int dc[] = {0, 0, -1, 1};
 
-    vector<vector<GraphNode>> graph(height, vector<GraphNode>(width));
-
-    for (int r = 0; r < height; r++) {
-        for (int c = 0; c < width; c++) {
-            graph[r][c].pos = {r, c};
-            
-            // If the current cell is an obstacle ('X'), it has no valid transitions/edges
-            if (grid[r][c] == 'X') continue;
-
-            // Connect to neighboring valid non-obstacle cells
-            for (int i = 0; i < 4; i++) {
-                int nr = r + dr[i];
-                int nc = c + dc[i];
-
-                if (nr >= 0 && nr < height && nc >= 0 && nc < width) {
-                    if (grid[nr][nc] != 'X') {
-                        graph[r][c].neighbors.push_back({nr, nc});
-                    }
-                }
-            }
-        }
-    }
-
-    // BFS to find the shortest path from 'U' to 'H'
-    queue<Point> q;
-    vector<vector<bool>> visited(height, vector<bool>(width, false));
-    vector<vector<Point>> parent(height, vector<Point>(width, {-1, -1}));
-
-    q.push({uRow, uCol});
-    visited[uRow][uCol] = true;
-
-    bool reachedHome = false;
-
-    while (!q.empty()) {
-        Point curr = q.front();
+    while (!q.empty())
+    {
+        Node current = q.front();
         q.pop();
 
-        if (curr.r == hRow && curr.c == hCol) {
-            reachedHome = true;
-            break;
+        if (current.row == er && current.col == ec)
+        {
+            cout << current.dist << endl;
+            return 0;
         }
 
-        // Traverse neighboring graph nodes
-        for (const Point& neighbor : graph[curr.r][curr.c].neighbors) {
-            if (!visited[neighbor.r][neighbor.c]) {
-                visited[neighbor.r][neighbor.c] = true;
-                parent[neighbor.r][neighbor.c] = curr;
-                q.push(neighbor);
+        for (int i = 0; i < 4; i++)
+        {
+            int nr = current.row + dr[i];
+            int nc = current.col + dc[i];
+
+            if (nr >= 0 && nr < rows &&
+                nc >= 0 && nc < cols &&
+                !visited[nr][nc] &&
+                grid[nr][nc] != 'X')
+            {
+                visited[nr][nc] = true;
+                q.push({nr, nc, current.dist + 1});
             }
         }
     }
 
-    // Output the results
-    if (reachedHome) {
-        // Reconstruct the path from Home to Umer using parent pointers
-        vector<Point> path;
-        Point curr = {hRow, hCol};
-        while (curr.r != -1 && curr.c != -1) {
-            path.push_back(curr);
-            curr = parent[curr.r][curr.c];
-        }
-
-        cout << "\nPath found! Coordinates along the route (from U to H):" << endl;
-        int steps = 0;
-        for (int i = path.size() - 1; i >= 0; i--) {
-            cout << "(" << path[i].r << ", " << path[i].c << ")";
-            if (i > 0) cout << " -> ";
-            steps++;
-        }
-        cout << "\nMinimum steps to get back home: " << steps - 1 << endl;
-    } else {
-        cout << "\nIt is not possible for Umer to return home." << endl;
-        cout << "Minimum steps: -1" << endl;
-    }
+    cout << -1 << endl;
 
     return 0;
 }
-
-
-
-//test cases
-/**/

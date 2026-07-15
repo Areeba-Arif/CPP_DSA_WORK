@@ -1,150 +1,194 @@
+/*
+The question is asking you to:
+
+Take an n × m matrix as input.
+Fill it randomly with 0 and 1.
+0 = path (mouse can move)
+1 = blocked cell
+Convert the maze into a Graph using Adjacency List.
+Use Breadth First Search (BFS) to find the path from (0,0) to (n-1,m-1).
+Mouse can move in 8 directions (up, down, left, right, and diagonals).
+Print the path as (row,column) indexes.
+*/
+
+
 #include <iostream>
 #include <vector>
 #include <queue>
-#include <cstdlib>
 #include <ctime>
-#include <algorithm>
-
 using namespace std;
 
-// A simple structure to hold a coordinate
-struct Point {
-    int r, c;
+struct Node
+{
+    int x, y;
 };
 
-int main() {
-    srand(time(0)); // Seed for random generation
+int main()
+{
+    srand(time(0));
 
     int n, m;
-    cout << "Enter number of rows (n): ";
+    cout << "Enter rows: ";
     cin >> n;
-    cout << "Enter number of columns (m): ";
+    cout << "Enter columns: ";
     cin >> m;
 
-    // 1. Create and randomly fill a simple 2D array
-    // We use standard 0 and 1 values.
-    int A[100][100]; // Supporting up to a 100x100 grid for simplicity
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j < m; j++) {
-            A[i][j] = (rand() % 10 < 3) ? 1 : 0; // ~30% chance of block (1)
+    vector<vector<int>> maze(n, vector<int>(m));
+
+    // Fill maze randomly
+    for(int i=0;i<n;i++)
+    {
+        for(int j=0;j<m;j++)
+        {
+            maze[i][j]=rand()%2;
         }
     }
-    // Force start (0,0) and end (n-1, m-1) to be open (0)
-    A[0][0] = 0;
-    A[n - 1][m - 1] = 0;
 
-    // Print the generated Maze
-    cout << "\nGenerated Maze (0 = Open, 1 = Blocked):\n";
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j < m; j++) {
-            cout << A[i][j] << " ";
-        }
-        cout << "\n";
+    // Start and End must be open
+    maze[0][0]=0;
+    maze[n-1][m-1]=0;
+
+    cout<<"\nMaze:\n";
+    for(int i=0;i<n;i++)
+    {
+        for(int j=0;j<m;j++)
+            cout<<maze[i][j]<<" ";
+        cout<<endl;
     }
 
-    // 2. Map coordinates to a unique integer ID (0 to n*m - 1)
-    // ID = row * m + col
-    // Example: (1,1) in a 3-column grid is ID = 1 * 3 + 1 = 4
-    
-    int totalVertices = n * m;
-    vector<int> adj[10000]; // Simple array of vectors for graph adjacency list
+    // Adjacency List
+    vector<vector<int>> adj(n*m);
 
-    // 8-directional offsets
-    int rowOffsets[] = {-1, -1, -1, 0, 0, 1, 1, 1};
-    int colOffsets[] = {-1, 0, 1, -1, 1, -1, 0, 1};
+    int dx[8]={-1,-1,-1,0,0,1,1,1};
+    int dy[8]={-1,0,1,-1,1,-1,0,1};
 
-    // Construct the graph connections
-    for (int r = 0; r < n; r++) {
-        for (int c = 0; c < m; c++) {
-            if (A[r][c] == 1) continue; // Skip blocked cells
 
-            int u = r * m + c; // Current node ID
+    //Build graph
+    // Visit every cell of the maze
+for(int i=0;i<n;i++)
+{
+    for(int j=0;j<m;j++)
+    {
+        // Skip blocked cells (1)
+        if(maze[i][j]==1)
+            continue;
 
-            for (int d = 0; d < 8; d++) {
-                int nr = r + rowOffsets[d];
-                int nc = c + colOffsets[d];
+        // Convert (row,column) into graph node number
+        int u=i*m+j;
 
-                // Check boundary and make sure target cell is open (0)
-                if (nr >= 0 && nr < n && nc >= 0 && nc < m && A[nr][nc] == 0) {
-                    int v = nr * m + nc; // Neighbor node ID
-                    adj[u].push_back(v); // Add connection (edge)
-                }
+        // Check all 8 possible directions
+        for(int k=0;k<8;k++)
+        {
+            // Find neighbour coordinates
+            int ni=i+dx[k];
+            int nj=j+dy[k];
+
+            // If neighbour is inside the maze and is an open path
+            if(ni>=0 && ni<n && nj>=0 && nj<m && maze[ni][nj]==0)
+            {
+                // Convert neighbour into graph node
+                int v=ni*m+nj;
+
+                // Add an edge from current node to neighbour
+                adj[u].push_back(v);
             }
         }
     }
+}
 
-    // Print the Graph representation (ID mapping)
-    cout << "\n--- Mapped Graph Connections (as IDs) ---\n";
-    for (int i = 0; i < totalVertices; i++) {
-        int r = i / m;
-        int c = i % m;
-        if (A[r][c] == 0) {
-            cout << "Node ID " << i << " (" << r << "," << c << ") is connected to: ";
-            for (int neighbor : adj[i]) {
-                cout << neighbor << " ";
-            }
-            cout << "\n";
-        }
-    }
-    cout << "-------------------------------------------\n";
+    // Parent array stores from which node we reached the current node
+    vector<int> parent(n*m,-1);
 
-    // 3. BFS logic using simple array tracking
-    int start = 0;              // ID for (0,0)
-    int dest = totalVertices - 1; // ID for (n-1, m-1)
+    // Keeps track of visited nodes
+    vector<bool> visited(n*m,false);
 
+    // Queue is used for BFS traversal
     queue<int> q;
-    bool visited[10000] = {false};
-    int parent[10000]; // Track parent path: parent[child_id] = parent_id
-    
-    // Initialize parent array with -1
-    for (int i = 0; i < totalVertices; i++) parent[i] = -1;
 
-    visited[start] = true;
+    // Start node (0,0) and destination node (last cell)
+    int start=0;
+    int goal=n*m-1;
+
+    // Start BFS from the starting node
     q.push(start);
+    visited[start]=true;
 
-    bool pathFound = false;
-    while (!q.empty()) {
-        int curr = q.front();
+    // Continue until queue becomes empty
+    while(!q.empty())
+    {
+        // Take the front node from the queue
+        int u=q.front();
         q.pop();
 
-        if (curr == dest) {
-            pathFound = true;
+        // Stop if destination is reached
+        if(u==goal)
             break;
-        }
 
-        for (int neighbor : adj[curr]) {
-            if (!visited[neighbor]) {
-                visited[neighbor] = true;
-                parent[neighbor] = curr;
-                q.push(neighbor);
+        // Visit all neighbouring nodes
+        for(int v:adj[u])
+        {
+            // Process only unvisited neighbours
+            if(!visited[v])
+            {
+                visited[v]=true; // Mark as visited
+                parent[v]=u;     // Save parent for path reconstruction
+                q.push(v);       // Add neighbour to queue
             }
         }
     }
 
-    // 4. Output path reconstruction
-    if (!pathFound) {
-        cout << "\nNo path exists from (0,0) to (" << n - 1 << "," << m - 1 << ").\n";
-    } else {
-        vector<int> path;
-        int curr = dest;
-        while (curr != -1) {
-            path.push_back(curr);
-            curr = parent[curr];
-        }
-        reverse(path.begin(), path.end());
-
-        cout << "\nPath found! Indices covered by the mouse:\n";
-        for (size_t i = 0; i < path.size(); i++) {
-            // Convert node ID back to 2D coordinates (Row and Column)
-            int r = path[i] / m;
-            int c = path[i] % m;
-            cout << "(" << r << "," << c << ")";
-            if (i < path.size() - 1) {
-                cout << " -> ";
-            }
-        }
-        cout << "\n";
+    // If destination was never visited, no path exists
+    if(!visited[goal])
+    {
+        cout<<"No Path Found!";
+        return 0;
     }
+
+    // Reconstruct the path from destination back to start
+    vector<int> path;
+
+    for(int v=goal;v!=-1;v=parent[v])
+        path.push_back(v);
+
+    // Print path in correct order
+    for(int i=path.size()-1;i>=0;i--)
+    {
+        // Convert node number back into (row,column)
+        int r=path[i]/m;
+        int c=path[i]%m;
+
+        cout<<"("<<r<<","<<c<<") ";
+
+        if(i!=0)
+            cout<<" -> ";
+    }
+
+    cout<<endl;
 
     return 0;
 }
+
+
+
+
+/*
+Input n and m
+        ↓
+Generate random maze (0 & 1)
+        ↓
+Keep start/end open
+        ↓
+Convert every 0 cell into a graph node
+        ↓
+Connect all valid 8-direction neighbours
+        ↓
+Run BFS from (0,0)
+        ↓
+Store parent of every visited node
+        ↓
+Reach destination?
+      /      \
+    Yes       No
+     |         |
+Print path   Print "No Path Found"
+*/
